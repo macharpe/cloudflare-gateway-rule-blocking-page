@@ -19,7 +19,7 @@
     "blocking-page"
   ],
   "author": "",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250810.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",

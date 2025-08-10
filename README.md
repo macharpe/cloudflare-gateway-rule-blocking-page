@@ -16,29 +16,16 @@ A Cloudflare Worker that serves custom blocking pages for Cloudflare Gateway rul
 ## Architecture
 
 ```mermaid
-graph TB
-    A[User Request] --> B{Cloudflare Gateway}
-    B -->|Block Decision| C[Gateway Policy Check]
-    C -->|Rule Matches| D[Block & Redirect]
-    D --> E[Cloudflare Worker]
-    E --> F{Request Type?}
-    F -->|HTML| G[Generate Blocking Page]
-    F -->|JSON| H[Generate API Response]
-    E --> I[Check KV Cache]
-    I -->|Cache Miss| J[Cloudflare Gateway API]
-    J --> K[Retrieve Rule Name]
-    K --> L[Cache Rule Name]
-    L --> M[Return Rule Info]
-    I -->|Cache Hit| M
-    M --> G
-    M --> H
-    G --> N[User sees Custom Block Page]
-    H --> O[API Consumer gets JSON]
+graph LR
+    A[User Request] --> B[Cloudflare Gateway]
+    B -->|Blocks Request| C[Cloudflare Worker]
+    C --> D[Gateway API]
+    D -->|Rule Name| C
+    C --> E[Custom Block Page]
     
-    style B fill:#f9f,stroke:#333,stroke-width:2px
-    style E fill:#f96,stroke:#333,stroke-width:2px
-    style J fill:#9cf,stroke:#333,stroke-width:2px
-    style N fill:#9f9,stroke:#333,stroke-width:2px
+    style B fill:#ff6b6b,stroke:#333,stroke-width:3px,color:#fff
+    style C fill:#667eea,stroke:#333,stroke-width:3px,color:#fff
+    style E fill:#51cf66,stroke:#333,stroke-width:3px,color:#fff
 ```
 
 ## How It Works
@@ -258,7 +245,7 @@ The worker implements caching to minimize API calls to Cloudflare's Gateway API:
 
 ## License
 
-MIT License - see LICENSE file for details
+This project is licensed under the GNU General Public License v3.0 or later - see the [LICENSE](LICENSE) file for details.
 
 ## Support
 
