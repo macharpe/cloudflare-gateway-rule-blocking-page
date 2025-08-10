@@ -13,6 +13,12 @@ A Cloudflare Worker that serves custom blocking pages for Cloudflare Gateway rul
 - 🔄 **API Support**: JSON API endpoints for programmatic access
 - 🔒 **Security Headers**: Includes proper security headers for safe operation
 
+## 📸 Demo
+
+![Blocking Page Demo](images/blocking-page-demo.png)
+
+*Example of the custom blocking page showing a "Security Policy" rule block with professional UI, timestamp, and user-friendly navigation options.*
+
 ## Architecture
 
 ```mermaid
