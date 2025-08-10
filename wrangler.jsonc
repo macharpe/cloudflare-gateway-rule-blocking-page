@@ -1,0 +1,26 @@
+{
+  "name": "gateway-blocking-page",
+  "main": "src/index.js",
+  "compatibility_date": "2024-08-01",
+  // Environment variables
+  "vars": {
+    // These will be set via wrangler secret commands or dashboard
+    // "CLOUDFLARE_API_TOKEN": "your-api-token",
+    // "CLOUDFLARE_ACCOUNT_ID": "your-account-id"
+  },
+  // Uncomment and configure routes as needed
+  "routes": [
+    {
+      "pattern": "block.macharpe.com/*",
+      "zone_name": "macharpe.com"
+    }
+  ],
+  // KV namespace for caching rule names (optional but recommended)
+  "kv_namespaces": [
+    {
+      "binding": "RULE_CACHE",
+      "id": "e6962f39e1fb48499f9733ca67afa7d9",
+      "preview_id": "37b697e564444976825e0a7d30cca1b2"
+    }
+  ]
+}
