@@ -378,7 +378,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp)
             </div>
             
             <div class="actions">
-                <a href="mailto:support@macharpe.com?subject=Access%20Blocked%20-%20Please%20Review&body=Hello,%0A%0AI%20was%20blocked%20from%20accessing:%0A${blockedUrl ? encodeURIComponent(displayUrl) : 'N/A'}%0A%0ARule:%20${encodeURIComponent(ruleName)}%0ARule%20ID:%20${ruleId || 'N/A'}%0A${category ? `Category:%20${encodeURIComponent(category)}%0A` : ''}%0ATime:%20${encodeURIComponent(timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString())}%0A%0APlease%20review%20this%20block%20as%20I%20believe%20it%20may%20be%20in%20error.%0A%0AThank%20you." class="btn">Contact Administrator</a>
+                <a href="mailto:support@macharpe.com?subject=Access%20Blocked%20-%20Please%20Review&body=Hello,%0A%0AI%20was%20blocked%20from%20accessing%20the%20following%20resource:%0A%0ABLOCKED%20URL:%0A${blockedUrl ? encodeURIComponent(displayUrl) : 'N/A'}%0A%0ASECURITY%20RULE%20DETAILS:%0ARule%20Name:%20${encodeURIComponent(ruleName)}%0ARule%20ID:%20${ruleId || 'N/A'}%0A${category ? `Category:%20${encodeURIComponent(category)}%0A` : ''}%0ATIMESTAMP:%0A${encodeURIComponent(timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString())}%0A%0AREQUEST%20FOR%20REVIEW:%0APlease%20review%20this%20block%20as%20I%20believe%20it%20may%20be%20in%20error.%20If%20this%20is%20a%20legitimate%20business%20resource,%20please%20consider%20updating%20the%20security%20policy.%0A%0AThank%20you%20for%20your%20assistance." class="btn">Contact Administrator</a>
             </div>
         </div>
         
