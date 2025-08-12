@@ -23,6 +23,22 @@ async function handleRequest(request, env) {
     const timestamp = url.searchParams.get('timestamp')
     const userEmail = url.searchParams.get('cf_user_email')
     
+    // Validate Gateway context - require at least one Gateway parameter
+    const hasGatewayContext = ruleId || blockedUrl || category || userEmail ||
+      url.searchParams.has('cf_rule_id') || url.searchParams.has('cf_site_uri') ||
+      url.searchParams.has('cf_request_category_names') || url.searchParams.has('cf_user_email')
+    
+    if (!hasGatewayContext) {
+      return new Response('Access Denied', {
+        status: 403,
+        headers: {
+          'Content-Type': 'text/plain',
+          'X-Frame-Options': 'DENY',
+          'X-Content-Type-Options': 'nosniff'
+        }
+      })
+    }
+    
     // Check for JSON API request
     const acceptHeader = request.headers.get('Accept')
     const isJsonRequest = acceptHeader && acceptHeader.includes('application/json')
