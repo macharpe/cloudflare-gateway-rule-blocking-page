@@ -1,5 +1,12 @@
 # Cloudflare Gateway Rule Blocking Page
 
+![License](https://img.shields.io/badge/license-GPL%20v3-blue.svg)
+![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange.svg)
+![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
+![Security](https://img.shields.io/badge/security-Gateway%20Integration-red.svg)
+![Maintenance](https://img.shields.io/badge/Maintained-yes-green.svg)
+
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/macharpe/cloudflare-gateway-rule-blocking-page)
 
 A Cloudflare Worker that serves custom blocking pages for Cloudflare Gateway rules with dynamic rule name retrieval. When users hit blocked content, they see a user-friendly page showing exactly which security rule blocked their request.
