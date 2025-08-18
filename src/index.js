@@ -127,7 +127,7 @@ async function getRuleName(ruleId, env) {
     
     if (!apiToken || !accountId) {
       console.warn('API credentials not configured')
-      return `Rule ${ruleId}`
+      return 'Rule ' + ruleId
     }
     
     const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/gateway/rules/${ruleId}`
@@ -141,19 +141,19 @@ async function getRuleName(ruleId, env) {
     
     if (!response.ok) {
       console.error(`API request failed: ${response.status} ${response.statusText}`)
-      return `Rule ${ruleId}`
+      return 'Rule ' + ruleId
     }
     
     const data = await response.json()
-    const ruleName = data.result?.name || `Rule ${ruleId}`
+    const ruleName = data.result?.name || ('Rule ' + ruleId)
     
     // Cache the result
     await cacheRuleName(ruleId, ruleName, env)
     
     return ruleName
   } catch (error) {
-    console.error(`Error fetching rule name for ${ruleId}:`, error)
-    return `Rule ${ruleId}`
+    console.error('Error fetching rule name for rule:', ruleId, error)
+    return 'Rule ' + ruleId
   }
 }
 
@@ -193,6 +193,21 @@ async function cacheRuleName(ruleId, ruleName, env) {
 }
 
 /**
+ * Escape HTML special characters to prevent XSS
+ * @param {string} text 
+ * @returns {string}
+ */
+function escapeHtml(text) {
+  if (!text) return ''
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
  * Generate HTML blocking page
  * @param {string} ruleName 
  * @param {string} ruleId 
@@ -202,8 +217,8 @@ async function cacheRuleName(ruleId, ruleName, env) {
  * @returns {string}
  */
 function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp) {
-  const displayUrl = blockedUrl ? decodeURIComponent(blockedUrl) : 'the requested resource'
-  const displayCategory = category ? ` (${category})` : ''
+  const displayUrl = blockedUrl ? escapeHtml(decodeURIComponent(blockedUrl)) : 'the requested resource'
+  const displayCategory = category ? ` (${escapeHtml(category)})` : ''
   
   return `
 <!DOCTYPE html>
@@ -360,7 +375,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp)
         
         <div class="content">
             <div class="rule-info">
-                <div class="rule-name">${ruleName}${displayCategory}</div>
+                <div class="rule-name">${escapeHtml(ruleName)}${displayCategory}</div>
                 <p>Your request was blocked by the security rule shown above. This helps protect your organization from potentially harmful content.</p>
             </div>
             
@@ -372,7 +387,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp)
             ` : ''}
             
             <div class="details">
-                ${ruleId ? `<div><strong>Rule ID:</strong> ${ruleId}</div>` : ''}
+                ${ruleId ? `<div><strong>Rule ID:</strong> ${escapeHtml(ruleId)}</div>` : ''}
                 ${category ? `<div><strong>Category:</strong> ${category}</div>` : ''}
                 ${timestamp ? `<div><strong>Time:</strong> ${new Date(timestamp).toLocaleString()}</div>` : `<div><strong>Time:</strong> ${new Date().toLocaleString()}</div>`}
             </div>
