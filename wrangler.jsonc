@@ -2,11 +2,15 @@
   "name": "gateway-blocking-page",
   "main": "src/index.js",
   "compatibility_date": "2024-08-01",
+  "compatibility_flags": ["nodejs_compat"],
   // Environment variables
   "vars": {
     // These will be set via wrangler secret commands or dashboard
     // "CLOUDFLARE_API_TOKEN": "your-api-token",
-    // "CLOUDFLARE_ACCOUNT_ID": "your-account-id"
+    // "CLOUDFLARE_ACCOUNT_ID": "your-account-id",
+    "ADMIN_EMAIL": "support@macharpe.com",
+    "CACHE_TTL": "3600",
+    "ALLOWED_ORIGINS": "https://admin.macharpe.com,https://dashboard.macharpe.com"
   },
   // Uncomment and configure routes as needed
   "routes": [

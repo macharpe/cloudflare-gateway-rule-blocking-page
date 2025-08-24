@@ -18,7 +18,11 @@ A Cloudflare Worker that serves custom blocking pages for Cloudflare Gateway rul
 - 📱 **Mobile Friendly**: Responsive design that works on all devices
 - 🚀 **High Performance**: Uses KV storage for caching to minimize API calls
 - 🔄 **API Support**: JSON API endpoints for programmatic access
-- 🔒 **Security Headers**: Includes proper security headers for safe operation
+- 🔒 **Enhanced Security**: CSP headers, secure CORS, XSS protection, and security-first design
+- ⚡ **Rate Limiting**: Exponential backoff retry logic for API resilience
+- 🧪 **Testing**: Comprehensive test suite with high coverage
+- 🛠️ **Code Quality**: ESLint configuration with modern standards
+- ⚙️ **Configurable**: Environment-based configuration management
 
 ## 📸 Demo
 
@@ -113,6 +117,18 @@ wrangler secret put CLOUDFLARE_API_TOKEN
 wrangler secret put CLOUDFLARE_ACCOUNT_ID
 ```
 
+Configure additional environment variables in `wrangler.jsonc`:
+
+```json
+{
+  "vars": {
+    "ADMIN_EMAIL": "admin@yourdomain.com",
+    "CACHE_TTL": "3600",
+    "ALLOWED_ORIGINS": "https://admin.yourdomain.com,https://dashboard.yourdomain.com"
+  }
+}
+```
+
 ### 5. Deploy
 
 ```bash
@@ -184,20 +200,27 @@ npm run dev
 npm run tail
 ```
 
-### Code Formatting
+### Code Quality
 
 ```bash
 npm run format
 npm run lint
+npm test
 ```
 
 ## File Structure
 
 ```
 ├── src/
-│   └── index.js           # Main worker code
+│   ├── index.js           # Main worker code
+│   └── __tests__/         # Test files
+│       ├── index.test.js  # Comprehensive test suite
+│       └── setup.js       # Test environment setup
 ├── wrangler.jsonc         # Wrangler configuration
 ├── package.json           # Dependencies and scripts
+├── eslint.config.js       # ESLint configuration
+├── jest.config.js         # Jest testing configuration
+├── babel.config.js        # Babel configuration
 ├── .gitignore            # Git ignore rules
 ├── README.md             # This file
 └── CLAUDE.md             # Development guidance
@@ -209,22 +232,29 @@ npm run lint
 |----------|----------|-------------|
 | `CLOUDFLARE_API_TOKEN` | Yes | API token with Zero Trust Gateway permissions |
 | `CLOUDFLARE_ACCOUNT_ID` | Yes | Your Cloudflare account ID |
+| `ADMIN_EMAIL` | No | Administrator email for contact links (default: admin@example.com) |
+| `CACHE_TTL` | No | Cache duration in seconds (default: 3600) |
+| `ALLOWED_ORIGINS` | No | Comma-separated list of allowed CORS origins |
 | `RULE_CACHE` | No | KV namespace binding for caching rule names |
 
-## API Rate Limits
+## API Rate Limits & Resilience
 
-The worker implements caching to minimize API calls to Cloudflare's Gateway API:
+The worker implements robust API handling with multiple resilience features:
 
-- Rule names are cached for 1 hour
-- Failed lookups fall back to showing rule ID
-- Graceful degradation if API is unavailable
+- **Intelligent Caching**: Rule names cached with configurable TTL (default: 1 hour)
+- **Retry Logic**: Exponential backoff for rate-limited (429) and server error (5xx) responses
+- **Graceful Degradation**: Shows rule ID if API is unavailable
+- **Error Handling**: Comprehensive error handling with fallback responses
 
 ## Security Considerations
 
-- API tokens are stored as Wrangler secrets (not in code)
-- Security headers prevent clickjacking and content sniffing
-- No sensitive information is logged or displayed
-- CORS headers allow safe cross-origin API access
+- **Secure Secrets**: API tokens stored as Wrangler secrets (not in code)
+- **Enhanced Security Headers**: CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy
+- **CORS Protection**: Configurable allowed origins instead of wildcard access
+- **XSS Prevention**: HTML escaping for all user inputs
+- **Content Security Policy**: Strict CSP with nonce-based inline styles
+- **Access Control**: Gateway context validation prevents direct access
+- **No Information Disclosure**: Sensitive information never logged or displayed
 
 ## Troubleshooting
 

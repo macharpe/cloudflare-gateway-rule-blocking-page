@@ -1,6 +1,7 @@
 {
   "name": "cloudflare-gateway-blocking-page",
   "version": "1.0.0",
+  "type": "module",
   "description": "Cloudflare Worker that serves custom blocking pages for Gateway rules with dynamic rule name retrieval",
   "main": "src/index.js",
   "scripts": {
@@ -21,9 +22,12 @@
   "author": "",
   "license": "GPL-3.0-or-later",
   "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-env": "^7.24.0",
     "@cloudflare/workers-types": "^4.20250810.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
+    "babel-jest": "^30.0.5",
     "eslint": "^9.33.0",
     "jest": "^30.0.5",
     "prettier": "^3.6.2",
