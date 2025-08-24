@@ -267,7 +267,7 @@ function escapeHtml(text) {
  * @param {string} blockedUrl
  * @param {string} category
  * @param {string} timestamp
- * @returns {object} - Returns subject and body for the email
+ * @returns {{subject: string, body: string, adminEmail: string}} - Returns subject and body for the email
  */
 function generateEmailContent(adminEmail, ruleName, ruleId, blockedUrl, category, timestamp) {
   const subject = 'Security Policy Review Request - Access Blocked'
@@ -324,6 +324,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
   const displayUrl = blockedUrl ? escapeHtml(decodeURIComponent(blockedUrl)) : 'the requested resource'
   const displayCategory = category ? ` (${escapeHtml(category)})` : ''
   const adminEmail = env.ADMIN_EMAIL || 'admin@example.com'
+  /** @type {{subject: string, body: string, adminEmail: string}} */
   const emailContent = generateEmailContent(adminEmail, ruleName, ruleId, displayUrl, category, timestamp)
   
   return `
@@ -349,6 +350,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             justify-content: center;
             color: #333;
             line-height: 1.6;
+            font-size: 1rem;
         }
         
         .container {
@@ -367,13 +369,20 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             text-align: center;
         }
         
+        .header p {
+            font-size: 1rem;
+            margin: 0;
+            opacity: 0.95;
+        }
+        
         .header h1 {
-            font-size: 2rem;
+            font-size: 1.75rem;
             margin-bottom: 10px;
+            font-weight: 600;
         }
         
         .header .icon {
-            font-size: 3rem;
+            font-size: 2.5rem;
             margin-bottom: 20px;
             display: block;
         }
@@ -390,16 +399,22 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             border-radius: 0 8px 8px 0;
         }
         
+        .rule-info p {
+            font-size: 1rem;
+            margin: 0;
+            line-height: 1.5;
+        }
+        
         .rule-name {
-            font-weight: bold;
+            font-weight: 600;
             color: #007bff;
-            font-size: 1.1rem;
+            font-size: 1.125rem;
             margin-bottom: 10px;
         }
         
         .details {
             color: #666;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
             margin-top: 20px;
         }
         
@@ -415,6 +430,12 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             margin: 20px 0;
             word-break: break-all;
             color: #856404;
+            font-size: 0.875rem;
+        }
+        
+        .blocked-url strong {
+            font-size: 0.875rem;
+            font-weight: 600;
         }
         
         .actions {
@@ -433,6 +454,8 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             margin: 0 10px;
             transition: background-color 0.3s;
             cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
         }
         
         .btn:hover {
@@ -452,7 +475,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             padding: 20px 30px;
             text-align: center;
             color: #666;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
             border-top: 1px solid #e9ecef;
         }
         
@@ -492,7 +515,8 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
         
         .modal-header h3 {
             margin: 0;
-            font-size: 1.3rem;
+            font-size: 1.25rem;
+            font-weight: 600;
         }
         
         .close {
@@ -521,7 +545,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             border-radius: 6px;
             padding: 20px;
             font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
             white-space: pre-line;
             max-height: 300px;
             overflow-y: auto;
@@ -534,6 +558,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             background: #e3f2fd;
             border-left: 4px solid #2196f3;
             border-radius: 0 6px 6px 0;
+            font-size: 0.875rem;
         }
         
         .btn-copy {
@@ -568,7 +593,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             }
             
             .header h1 {
-                font-size: 1.5rem;
+                font-size: 1.375rem;
             }
             
             .modal-content {
