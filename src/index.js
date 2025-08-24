@@ -260,6 +260,56 @@ function escapeHtml(text) {
 }
 
 /**
+ * Generate well-formatted email URL for contacting administrator
+ * @param {string} adminEmail
+ * @param {string} ruleName
+ * @param {string} ruleId
+ * @param {string} blockedUrl
+ * @param {string} category
+ * @param {string} timestamp
+ * @returns {string}
+ */
+function generateEmailUrl(adminEmail, ruleName, ruleId, blockedUrl, category, timestamp) {
+  const subject = 'Security Policy Review Request - Access Blocked'
+  
+  const emailBody = `Hello,
+
+I was blocked from accessing a resource and would like to request a review of this security policy action.
+
+═══ INCIDENT DETAILS ═══
+
+🚫 BLOCKED RESOURCE:
+${blockedUrl || 'Not specified'}
+
+🛡️ SECURITY RULE:
+Rule Name: ${ruleName}
+Rule ID: ${ruleId || 'Not specified'}
+${category ? `Category: ${category}` : ''}
+
+⏰ INCIDENT TIME:
+${timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString()}
+
+═══ REQUEST FOR REVIEW ═══
+
+I believe this block may have occurred in error. If this is a legitimate business resource that I need access to, please consider:
+
+1. Reviewing the security policy configuration
+2. Adding an exception if appropriate
+3. Providing guidance on alternative access methods
+
+Please let me know if you need any additional information to process this request.
+
+Thank you for your assistance,
+${adminEmail.includes('macharpe.com') ? 'Team Member' : 'User'}`
+
+  // Create properly encoded mailto URL
+  const encodedSubject = encodeURIComponent(subject)
+  const encodedBody = encodeURIComponent(emailBody)
+  
+  return `mailto:${adminEmail}?subject=${encodedSubject}&body=${encodedBody}`
+}
+
+/**
  * Generate HTML blocking page
  * @param {string} ruleName 
  * @param {string} ruleId 
@@ -448,7 +498,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             </div>
             
             <div class="actions">
-                <a href="mailto:${adminEmail}?subject=Access%20Blocked%20-%20Please%20Review&body=Hello,%0A%0AI%20was%20blocked%20from%20accessing%20the%20following%20resource:%0A%0ABLOCKED%20URL:%0A${blockedUrl ? encodeURIComponent(displayUrl) : 'N/A'}%0A%0ASECURITY%20RULE%20DETAILS:%0ARule%20Name:%20${encodeURIComponent(ruleName)}%0ARule%20ID:%20${ruleId || 'N/A'}%0A${category ? `Category:%20${encodeURIComponent(category)}%0A` : ''}%0ATIMESTAMP:%0A${encodeURIComponent(timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString())}%0A%0AREQUEST%20FOR%20REVIEW:%0APlease%20review%20this%20block%20as%20I%20believe%20it%20may%20be%20in%20error.%20If%20this%20is%20a%20legitimate%20business%20resource,%20please%20consider%20updating%20the%20security%20policy.%0A%0AThank%20you%20for%20your%20assistance." class="btn">Contact Administrator</a>
+                <a href="${generateEmailUrl(adminEmail, ruleName, ruleId, displayUrl, category, timestamp)}" class="btn">Contact Administrator</a>
             </div>
         </div>
         
