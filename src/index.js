@@ -564,10 +564,15 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
         .btn-copy {
             background: #28a745;
             margin-right: 10px;
+            min-width: 160px;
         }
         
         .btn-copy:hover {
             background: #218838;
+        }
+        
+        .btn-secondary {
+            min-width: 160px;
         }
         
         .copy-success {
