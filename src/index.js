@@ -272,41 +272,58 @@ function escapeHtml(text) {
 function generateEmailUrl(adminEmail, ruleName, ruleId, blockedUrl, category, timestamp) {
   const subject = 'Security Policy Review Request - Access Blocked'
   
-  const emailBody = `Hello,
-
-I was blocked from accessing a resource and would like to request a review of this security policy action.
-
-═══ INCIDENT DETAILS ═══
-
-🚫 BLOCKED RESOURCE:
-${blockedUrl || 'Not specified'}
-
-🛡️ SECURITY RULE:
-Rule Name: ${ruleName}
-Rule ID: ${ruleId || 'Not specified'}
-${category ? `Category: ${category}` : ''}
-
-⏰ INCIDENT TIME:
-${timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString()}
-
-═══ REQUEST FOR REVIEW ═══
-
-I believe this block may have occurred in error. If this is a legitimate business resource that I need access to, please consider:
-
-1. Reviewing the security policy configuration
-2. Adding an exception if appropriate
-3. Providing guidance on alternative access methods
-
-Please let me know if you need any additional information to process this request.
-
-Thank you for your assistance,
-${adminEmail.includes('macharpe.com') ? 'Team Member' : 'User'}`
-
-  // Create properly encoded mailto URL
-  const encodedSubject = encodeURIComponent(subject)
-  const encodedBody = encodeURIComponent(emailBody)
+  // Use %0D%0A for better email client compatibility
+  const nl = '%0D%0A'
+  const separator = `${nl}${nl}========================================${nl}${nl}`
   
-  return `mailto:${adminEmail}?subject=${encodedSubject}&body=${encodedBody}`
+  // Build email body with explicit line break encoding
+  const lines = [
+    'Hello,',
+    '',
+    'I was blocked from accessing a resource and would like to request a review of this security policy action.',
+    '',
+    '========================================',
+    'INCIDENT DETAILS',
+    '========================================',
+    '',
+    'BLOCKED RESOURCE:',
+    blockedUrl || 'Not specified',
+    '',
+    'SECURITY RULE:',
+    `Rule Name: ${ruleName}`,
+    `Rule ID: ${ruleId || 'Not specified'}`,
+  ]
+  
+  if (category) {
+    lines.push(`Category: ${category}`)
+  }
+  
+  lines.push(
+    '',
+    'INCIDENT TIME:',
+    timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString(),
+    '',
+    '========================================',
+    'REQUEST FOR REVIEW',
+    '========================================',
+    '',
+    'I believe this block may have occurred in error. If this is a legitimate business resource that I need access to, please consider:',
+    '',
+    '1. Reviewing the security policy configuration',
+    '2. Adding an exception if appropriate',
+    '3. Providing guidance on alternative access methods',
+    '',
+    'Please let me know if you need any additional information to process this request.',
+    '',
+    'Thank you for your assistance,',
+    adminEmail.includes('macharpe.com') ? 'Team Member' : 'User'
+  )
+  
+  // Join with proper line breaks and encode
+  const emailBody = lines.join('%0D%0A')
+  const encodedSubject = encodeURIComponent(subject)
+  
+  return `mailto:${adminEmail}?subject=${encodedSubject}&body=${emailBody}`
 }
 
 /**
