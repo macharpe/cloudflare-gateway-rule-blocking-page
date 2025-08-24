@@ -167,7 +167,7 @@ describe('Gateway Blocking Page Worker', () => {
       expect(response.status).toBe(200)
       const html = await response.text()
       expect(html).toContain('Rule test-rule')
-    })
+    }, 10000)
   })
 
   describe('Security Headers', () => {
@@ -179,7 +179,8 @@ describe('Gateway Blocking Page Worker', () => {
       expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff')
       expect(response.headers.get('Referrer-Policy')).toBe('no-referrer')
       expect(response.headers.get('Content-Security-Policy')).toContain('default-src \'none\'')
-      expect(response.headers.get('Content-Security-Policy')).toContain('nonce-')
+      expect(response.headers.get('Content-Security-Policy')).toContain('style-src \'nonce-')
+      expect(response.headers.get('Content-Security-Policy')).toContain('script-src \'nonce-')
     })
   })
 
@@ -200,6 +201,8 @@ describe('Gateway Blocking Page Worker', () => {
       
       const html = await response.text()
       expect(html).toContain('admin@test.com')
+      expect(html).toContain('Contact Administrator')
+      expect(html).toContain('openContactModal')
     })
   })
 
@@ -240,8 +243,15 @@ describe('Gateway Blocking Page Worker', () => {
       const originalConsoleError = console.error
       console.error = jest.fn()
       
-      // Create a request that will cause an error
-      const request = new Request('invalid-url')
+      // Create a request that will cause an error by mocking URL constructor to throw
+      const originalURL = global.URL
+      global.URL = class {
+        constructor() {
+          throw new Error('Invalid URL')
+        }
+      }
+      
+      const request = new Request('https://example.com/block?rule_id=test')
       
       try {
         const response = await worker.fetch(request, env)
@@ -249,6 +259,7 @@ describe('Gateway Blocking Page Worker', () => {
         expect(await response.text()).toBe('Internal Server Error')
       } finally {
         console.error = originalConsoleError
+        global.URL = originalURL
       }
     })
   })

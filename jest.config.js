@@ -9,7 +9,7 @@ export default {
     '!src/__tests__/**',
   ],
   testMatch: [
-    '<rootDir>/src/**/__tests__/**/*.js',
+    '<rootDir>/src/**/__tests__/**/*.test.js',
     '<rootDir>/src/**/*.test.js'
   ],
   coverageThreshold: {

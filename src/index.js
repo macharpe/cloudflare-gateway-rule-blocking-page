@@ -111,7 +111,7 @@ async function handleHtmlRequest(ruleId, blockedUrl, category, timestamp, userEm
       'X-Frame-Options': 'DENY',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'no-referrer',
-      'Content-Security-Policy': `default-src 'none'; style-src 'nonce-${nonce}'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none';`
+      'Content-Security-Policy': `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none';`
     }
   })
 }
@@ -260,70 +260,53 @@ function escapeHtml(text) {
 }
 
 /**
- * Generate well-formatted email URL for contacting administrator
+ * Generate formatted email content for contact form
  * @param {string} adminEmail
  * @param {string} ruleName
  * @param {string} ruleId
  * @param {string} blockedUrl
  * @param {string} category
  * @param {string} timestamp
- * @returns {string}
+ * @returns {object} - Returns subject and body for the email
  */
-function generateEmailUrl(adminEmail, ruleName, ruleId, blockedUrl, category, timestamp) {
+function generateEmailContent(adminEmail, ruleName, ruleId, blockedUrl, category, timestamp) {
   const subject = 'Security Policy Review Request - Access Blocked'
   
-  // Use %0D%0A for better email client compatibility
-  const nl = '%0D%0A'
-  const separator = `${nl}${nl}========================================${nl}${nl}`
-  
-  // Build email body with explicit line break encoding
-  const lines = [
-    'Hello,',
-    '',
-    'I was blocked from accessing a resource and would like to request a review of this security policy action.',
-    '',
-    '========================================',
-    'INCIDENT DETAILS',
-    '========================================',
-    '',
-    'BLOCKED RESOURCE:',
-    blockedUrl || 'Not specified',
-    '',
-    'SECURITY RULE:',
-    `Rule Name: ${ruleName}`,
-    `Rule ID: ${ruleId || 'Not specified'}`,
-  ]
-  
-  if (category) {
-    lines.push(`Category: ${category}`)
-  }
-  
-  lines.push(
-    '',
-    'INCIDENT TIME:',
-    timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString(),
-    '',
-    '========================================',
-    'REQUEST FOR REVIEW',
-    '========================================',
-    '',
-    'I believe this block may have occurred in error. If this is a legitimate business resource that I need access to, please consider:',
-    '',
-    '1. Reviewing the security policy configuration',
-    '2. Adding an exception if appropriate',
-    '3. Providing guidance on alternative access methods',
-    '',
-    'Please let me know if you need any additional information to process this request.',
-    '',
-    'Thank you for your assistance,',
-    adminEmail.includes('macharpe.com') ? 'Team Member' : 'User'
-  )
-  
-  // Join with proper line breaks and encode
-  const emailBody = lines.join('%0D%0A')
-  const encodedSubject = encodeURIComponent(subject)
-  
-  return `mailto:${adminEmail}?subject=${encodedSubject}&body=${emailBody}`
+  const body = `Hello,
+
+I was blocked from accessing a resource and would like to request a review of this security policy action.
+
+========================================
+INCIDENT DETAILS
+========================================
+
+BLOCKED RESOURCE:
+${blockedUrl || 'Not specified'}
+
+SECURITY RULE:
+Rule Name: ${ruleName}
+Rule ID: ${ruleId || 'Not specified'}${category ? `
+Category: ${category}` : ''}
+
+INCIDENT TIME:
+${timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString()}
+
+========================================
+REQUEST FOR REVIEW
+========================================
+
+I believe this block may have occurred in error. If this is a legitimate business resource that I need access to, please consider:
+
+1. Reviewing the security policy configuration
+2. Adding an exception if appropriate
+3. Providing guidance on alternative access methods
+
+Please let me know if you need any additional information to process this request.
+
+Thank you for your assistance,
+${adminEmail.includes('macharpe.com') ? 'Team Member' : 'User'}`
+
+  return { subject, body, adminEmail }
 }
 
 /**
@@ -341,6 +324,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
   const displayUrl = blockedUrl ? escapeHtml(decodeURIComponent(blockedUrl)) : 'the requested resource'
   const displayCategory = category ? ` (${escapeHtml(category)})` : ''
   const adminEmail = env.ADMIN_EMAIL || 'admin@example.com'
+  const emailContent = generateEmailContent(adminEmail, ruleName, ruleId, displayUrl, category, timestamp)
   
   return `
 <!DOCTYPE html>
@@ -472,6 +456,108 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             border-top: 1px solid #e9ecef;
         }
         
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s;
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+        
+        .modal-header {
+            background: #007bff;
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px 12px 0 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.3rem;
+        }
+        
+        .close {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+        
+        .close:hover,
+        .close:focus {
+            opacity: 0.7;
+        }
+        
+        .modal-body {
+            padding: 30px;
+        }
+        
+        .email-content {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-line;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 15px 0;
+        }
+        
+        .copy-instructions {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .btn-copy {
+            background: #28a745;
+            margin-right: 10px;
+        }
+        
+        .btn-copy:hover {
+            background: #218838;
+        }
+        
+        .copy-success {
+            color: #28a745;
+            font-weight: bold;
+            margin-left: 10px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
         @media (max-width: 600px) {
             .container {
                 margin: 10px;
@@ -483,6 +569,15 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             
             .header h1 {
                 font-size: 1.5rem;
+            }
+            
+            .modal-content {
+                margin: 10% auto;
+                width: 95%;
+            }
+            
+            .modal-header, .modal-body {
+                padding: 20px;
             }
         }
     </style>
@@ -515,7 +610,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             </div>
             
             <div class="actions">
-                <a href="${generateEmailUrl(adminEmail, ruleName, ruleId, displayUrl, category, timestamp)}" class="btn">Contact Administrator</a>
+                <button onclick="openContactModal()" class="btn">Contact Administrator</button>
             </div>
         </div>
         
@@ -523,6 +618,83 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
             If you believe this was blocked in error, please contact your IT administrator.
         </div>
     </div>
+    
+    <!-- Contact Modal -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Contact Administrator</h3>
+                <span class="close" onclick="closeContactModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="copy-instructions">
+                    <strong>Instructions:</strong> Use "Copy Message Body" to copy only the message text, then compose a new email to the administrator with the provided subject line.
+                </div>
+                
+                <div>
+                    <strong>To:</strong> ${escapeHtml(emailContent.adminEmail)}
+                </div>
+                <div style="margin: 10px 0;">
+                    <strong>Subject:</strong> ${escapeHtml(emailContent.subject)}
+                </div>
+                
+                <div>
+                    <strong>Message:</strong>
+                </div>
+                <div class="email-content" id="emailContent">${escapeHtml(emailContent.body)}</div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="copyEmailContent()" class="btn btn-copy">Copy Message Body</button>
+                    <a href="mailto:${escapeHtml(emailContent.adminEmail)}?subject=${encodeURIComponent(emailContent.subject)}" class="btn btn-secondary">Open Email Client</a>
+                    <span id="copySuccess" class="copy-success">Message copied!</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script nonce="${nonce}">
+        function openContactModal() {
+            document.getElementById('contactModal').style.display = 'block';
+        }
+        
+        function closeContactModal() {
+            document.getElementById('contactModal').style.display = 'none';
+        }
+        
+        function copyEmailContent() {
+            const body = \`${emailContent.body.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
+            
+            navigator.clipboard.writeText(body).then(function() {
+                const successMsg = document.getElementById('copySuccess');
+                successMsg.style.opacity = '1';
+                setTimeout(function() {
+                    successMsg.style.opacity = '0';
+                }, 3000);
+            }).catch(function(err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = body;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                const successMsg = document.getElementById('copySuccess');
+                successMsg.style.opacity = '1';
+                setTimeout(function() {
+                    successMsg.style.opacity = '0';
+                }, 3000);
+            });
+        }
+        
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('contactModal');
+            if (event.target == modal) {
+                closeContactModal();
+            }
+        }
+    </script>
 </body>
 </html>
   `.trim()

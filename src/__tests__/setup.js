@@ -103,3 +103,5 @@ if (typeof setTimeout === 'undefined') {
     return 1
   }
 }
+
+// This file is a setup file only - no tests needed
