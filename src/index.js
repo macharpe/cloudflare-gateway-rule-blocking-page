@@ -4,10 +4,10 @@
  */
 
 export default {
-  async fetch(request, env, ctx) {
-    return handleRequest(request, env);
+  async fetch(request, env) {
+    return handleRequest(request, env)
   }
-};
+}
 
 /**
  * Main request handler
@@ -44,7 +44,7 @@ async function handleRequest(request, env) {
     const isJsonRequest = acceptHeader && acceptHeader.includes('application/json')
     
     if (isJsonRequest) {
-      return handleJsonRequest(ruleId, blockedUrl, category, userEmail, env)
+      return handleJsonRequest(ruleId, blockedUrl, category, userEmail, env, request)
     }
     
     return handleHtmlRequest(ruleId, blockedUrl, category, timestamp, userEmail, env)
@@ -61,8 +61,9 @@ async function handleRequest(request, env) {
  * @param {string} category 
  * @param {string} userEmail
  * @param {object} env
+ * @param {Request} request
  */
-async function handleJsonRequest(ruleId, blockedUrl, category, userEmail, env) {
+async function handleJsonRequest(ruleId, blockedUrl, category, userEmail, env, request) {
   const ruleName = ruleId ? await getRuleName(ruleId, env) : 'Unknown Rule'
   
   const response = {
@@ -74,12 +75,18 @@ async function handleJsonRequest(ruleId, blockedUrl, category, userEmail, env) {
     timestamp: new Date().toISOString()
   }
   
+  // Get allowed origins from environment variable, fallback to none for security
+  const allowedOrigins = env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : []
+  const origin = request.headers.get('Origin')
+  const allowOrigin = allowedOrigins.length > 0 && origin && allowedOrigins.includes(origin) ? origin : 'null'
+  
   return new Response(JSON.stringify(response, null, 2), {
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowOrigin,
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Vary': 'Origin'
     }
   })
 }
@@ -95,20 +102,22 @@ async function handleJsonRequest(ruleId, blockedUrl, category, userEmail, env) {
  */
 async function handleHtmlRequest(ruleId, blockedUrl, category, timestamp, userEmail, env) {
   const ruleName = ruleId ? await getRuleName(ruleId, env) : 'Security Policy'
-  const html = generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp)
+  const nonce = crypto.randomUUID().replace(/-/g, '')
+  const html = generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp, env, nonce)
   
   return new Response(html, {
     headers: {
       'Content-Type': 'text/html',
       'X-Frame-Options': 'DENY',
       'X-Content-Type-Options': 'nosniff',
-      'Referrer-Policy': 'no-referrer'
+      'Referrer-Policy': 'no-referrer',
+      'Content-Security-Policy': `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none';`
     }
   })
 }
 
 /**
- * Retrieve rule name from Cloudflare Gateway API
+ * Retrieve rule name from Cloudflare Gateway API with retry logic
  * @param {string} ruleId 
  * @param {object} env
  * @returns {Promise<string>}
@@ -121,7 +130,7 @@ async function getRuleName(ruleId, env) {
     const cached = await getCachedRuleName(ruleId, env)
     if (cached) return cached
     
-    // Fetch from API
+    // Fetch from API with retry logic
     const apiToken = env.CLOUDFLARE_API_TOKEN
     const accountId = env.CLOUDFLARE_ACCOUNT_ID
     
@@ -130,22 +139,16 @@ async function getRuleName(ruleId, env) {
       return 'Rule ' + ruleId
     }
     
-    const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/gateway/rules/${ruleId}`
-    
-    const response = await fetch(apiUrl, {
-      headers: {
-        'Authorization': `Bearer ${apiToken}`,
-        'Content-Type': 'application/json'
-      }
-    })
-    
-    if (!response.ok) {
-      console.error(`API request failed: ${response.status} ${response.statusText}`)
-      return 'Rule ' + ruleId
-    }
-    
-    const data = await response.json()
-    const ruleName = data.result?.name || ('Rule ' + ruleId)
+    const ruleName = await fetchWithRetry(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/gateway/rules/${ruleId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${apiToken}`,
+          'Content-Type': 'application/json'
+        }
+      },
+      3 // max retries
+    )
     
     // Cache the result
     await cacheRuleName(ruleId, ruleName, env)
@@ -155,6 +158,54 @@ async function getRuleName(ruleId, env) {
     console.error('Error fetching rule name for rule:', ruleId, error)
     return 'Rule ' + ruleId
   }
+}
+
+/**
+ * Fetch with exponential backoff retry logic
+ * @param {string} url 
+ * @param {object} options 
+ * @param {number} maxRetries 
+ * @returns {Promise<string>}
+ */
+async function fetchWithRetry(url, options, maxRetries) {
+  let lastError
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options)
+      
+      // Handle rate limiting (429) and server errors (5xx)
+      if (response.status === 429 || response.status >= 500) {
+        if (attempt === maxRetries) {
+          throw new Error(`API request failed after ${maxRetries + 1} attempts: ${response.status} ${response.statusText}`)
+        }
+        
+        // Exponential backoff: 1s, 2s, 4s, 8s...
+        const delay = Math.pow(2, attempt) * 1000
+        await new Promise(resolve => setTimeout(resolve, delay))
+        continue
+      }
+      
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      return data.result?.name || ('Rule ' + url.split('/').pop())
+      
+    } catch (error) {
+      lastError = error
+      if (attempt === maxRetries) {
+        throw lastError
+      }
+      
+      // Wait before retry for non-HTTP errors
+      const delay = Math.pow(2, attempt) * 1000
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+  
+  throw lastError
 }
 
 /**
@@ -184,8 +235,9 @@ async function getCachedRuleName(ruleId, env) {
 async function cacheRuleName(ruleId, ruleName, env) {
   try {
     if (env.RULE_CACHE) {
-      // Cache for 1 hour
-      await env.RULE_CACHE.put(`rule:${ruleId}`, ruleName, { expirationTtl: 3600 })
+      // Cache TTL from environment variable, default to 1 hour
+      const cacheTtl = parseInt(env.CACHE_TTL) || 3600
+      await env.RULE_CACHE.put(`rule:${ruleId}`, ruleName, { expirationTtl: cacheTtl })
     }
   } catch (error) {
     console.error('Cache write error:', error)
@@ -208,17 +260,71 @@ function escapeHtml(text) {
 }
 
 /**
+ * Generate formatted email content for contact form
+ * @param {string} adminEmail
+ * @param {string} ruleName
+ * @param {string} ruleId
+ * @param {string} blockedUrl
+ * @param {string} category
+ * @param {string} timestamp
+ * @returns {object} - Returns subject and body for the email
+ */
+function generateEmailContent(adminEmail, ruleName, ruleId, blockedUrl, category, timestamp) {
+  const subject = 'Security Policy Review Request - Access Blocked'
+  
+  const body = `Hello,
+
+I was blocked from accessing a resource and would like to request a review of this security policy action.
+
+========================================
+INCIDENT DETAILS
+========================================
+
+BLOCKED RESOURCE:
+${blockedUrl || 'Not specified'}
+
+SECURITY RULE:
+Rule Name: ${ruleName}
+Rule ID: ${ruleId || 'Not specified'}${category ? `
+Category: ${category}` : ''}
+
+INCIDENT TIME:
+${timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString()}
+
+========================================
+REQUEST FOR REVIEW
+========================================
+
+I believe this block may have occurred in error. If this is a legitimate business resource that I need access to, please consider:
+
+1. Reviewing the security policy configuration
+2. Adding an exception if appropriate
+3. Providing guidance on alternative access methods
+
+Please let me know if you need any additional information to process this request.
+
+Thank you for your assistance,
+${adminEmail.includes('macharpe.com') ? 'Team Member' : 'User'}`
+
+  return { subject, body, adminEmail }
+}
+
+/**
  * Generate HTML blocking page
  * @param {string} ruleName 
  * @param {string} ruleId 
  * @param {string} blockedUrl 
  * @param {string} category 
  * @param {string} timestamp 
+ * @param {object} env
+ * @param {string} nonce
  * @returns {string}
  */
-function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp) {
+function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp, env, nonce) {
   const displayUrl = blockedUrl ? escapeHtml(decodeURIComponent(blockedUrl)) : 'the requested resource'
   const displayCategory = category ? ` (${escapeHtml(category)})` : ''
+  const adminEmail = env.ADMIN_EMAIL || 'admin@example.com'
+  const emailContent = generateEmailContent(adminEmail, ruleName, ruleId, displayUrl, category, timestamp)
   
   return `
 <!DOCTYPE html>
@@ -227,7 +333,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp)
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Access Blocked</title>
-    <style>
+    <style nonce="${nonce}">
         * {
             margin: 0;
             padding: 0;
@@ -350,6 +456,108 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp)
             border-top: 1px solid #e9ecef;
         }
         
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s;
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+        
+        .modal-header {
+            background: #007bff;
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px 12px 0 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.3rem;
+        }
+        
+        .close {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+        
+        .close:hover,
+        .close:focus {
+            opacity: 0.7;
+        }
+        
+        .modal-body {
+            padding: 30px;
+        }
+        
+        .email-content {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-line;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 15px 0;
+        }
+        
+        .copy-instructions {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .btn-copy {
+            background: #28a745;
+            margin-right: 10px;
+        }
+        
+        .btn-copy:hover {
+            background: #218838;
+        }
+        
+        .copy-success {
+            color: #28a745;
+            font-weight: bold;
+            margin-left: 10px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
         @media (max-width: 600px) {
             .container {
                 margin: 10px;
@@ -361,6 +569,15 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp)
             
             .header h1 {
                 font-size: 1.5rem;
+            }
+            
+            .modal-content {
+                margin: 10% auto;
+                width: 95%;
+            }
+            
+            .modal-header, .modal-body {
+                padding: 20px;
             }
         }
     </style>
@@ -393,7 +610,7 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp)
             </div>
             
             <div class="actions">
-                <a href="mailto:support@macharpe.com?subject=Access%20Blocked%20-%20Please%20Review&body=Hello,%0A%0AI%20was%20blocked%20from%20accessing%20the%20following%20resource:%0A%0ABLOCKED%20URL:%0A${blockedUrl ? encodeURIComponent(displayUrl) : 'N/A'}%0A%0ASECURITY%20RULE%20DETAILS:%0ARule%20Name:%20${encodeURIComponent(ruleName)}%0ARule%20ID:%20${ruleId || 'N/A'}%0A${category ? `Category:%20${encodeURIComponent(category)}%0A` : ''}%0ATIMESTAMP:%0A${encodeURIComponent(timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString())}%0A%0AREQUEST%20FOR%20REVIEW:%0APlease%20review%20this%20block%20as%20I%20believe%20it%20may%20be%20in%20error.%20If%20this%20is%20a%20legitimate%20business%20resource,%20please%20consider%20updating%20the%20security%20policy.%0A%0AThank%20you%20for%20your%20assistance." class="btn">Contact Administrator</a>
+                <button onclick="openContactModal()" class="btn">Contact Administrator</button>
             </div>
         </div>
         
@@ -401,6 +618,83 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp)
             If you believe this was blocked in error, please contact your IT administrator.
         </div>
     </div>
+    
+    <!-- Contact Modal -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Contact Administrator</h3>
+                <span class="close" onclick="closeContactModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="copy-instructions">
+                    <strong>Instructions:</strong> Use "Copy Message Body" to copy only the message text, then compose a new email to the administrator with the provided subject line.
+                </div>
+                
+                <div>
+                    <strong>To:</strong> ${escapeHtml(emailContent.adminEmail)}
+                </div>
+                <div style="margin: 10px 0;">
+                    <strong>Subject:</strong> ${escapeHtml(emailContent.subject)}
+                </div>
+                
+                <div>
+                    <strong>Message:</strong>
+                </div>
+                <div class="email-content" id="emailContent">${escapeHtml(emailContent.body)}</div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="copyEmailContent()" class="btn btn-copy">Copy Message Body</button>
+                    <a href="mailto:${escapeHtml(emailContent.adminEmail)}?subject=${encodeURIComponent(emailContent.subject)}" class="btn btn-secondary">Open Email Client</a>
+                    <span id="copySuccess" class="copy-success">Message copied!</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script nonce="${nonce}">
+        function openContactModal() {
+            document.getElementById('contactModal').style.display = 'block';
+        }
+        
+        function closeContactModal() {
+            document.getElementById('contactModal').style.display = 'none';
+        }
+        
+        function copyEmailContent() {
+            const body = \`${emailContent.body.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
+            
+            navigator.clipboard.writeText(body).then(function() {
+                const successMsg = document.getElementById('copySuccess');
+                successMsg.style.opacity = '1';
+                setTimeout(function() {
+                    successMsg.style.opacity = '0';
+                }, 3000);
+            }).catch(function(err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = body;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                const successMsg = document.getElementById('copySuccess');
+                successMsg.style.opacity = '1';
+                setTimeout(function() {
+                    successMsg.style.opacity = '0';
+                }, 3000);
+            });
+        }
+        
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('contactModal');
+            if (event.target == modal) {
+                closeContactModal();
+            }
+        }
+    </script>
 </body>
 </html>
   `.trim()

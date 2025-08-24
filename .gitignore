@@ -76,3 +76,6 @@ worker-configuration.d.ts
 
 # Claude Code guidance file
 CLAUDE.md
+
+# Assessment directory
+assessment/
