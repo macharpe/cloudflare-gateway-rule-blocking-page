@@ -331,400 +331,314 @@ function generateBlockingPage(ruleName, ruleId, blockedUrl, category, timestamp,
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Access Blocked</title>
-    <style nonce="${nonce}">
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #333;
-            line-height: 1.6;
-            font-size: 1rem;
-        }
-        
-        .container {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
-            margin: 20px;
-            overflow: hidden;
-        }
-        
-        .header {
-            background: #ff6b6b;
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        
-        .header p {
-            font-size: 1rem;
-            margin: 0;
-            opacity: 0.95;
-        }
-        
-        .header h1 {
-            font-size: 1.75rem;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-        
-        .header .icon {
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-            display: block;
-        }
-        
-        .content {
-            padding: 40px 30px;
-        }
-        
-        .rule-info {
-            background: #f8f9fa;
-            border-left: 4px solid #007bff;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 0 8px 8px 0;
-        }
-        
-        .rule-info p {
-            font-size: 1rem;
-            margin: 0;
-            line-height: 1.5;
-        }
-        
-        .rule-name {
-            font-weight: 600;
-            color: #007bff;
-            font-size: 1.125rem;
-            margin-bottom: 10px;
-        }
-        
-        .details {
-            color: #666;
-            font-size: 0.875rem;
-            margin-top: 20px;
-        }
-        
-        .details div {
-            margin: 5px 0;
-        }
-        
-        .blocked-url {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
-            word-break: break-all;
-            color: #856404;
-            font-size: 0.875rem;
-        }
-        
-        .blocked-url strong {
-            font-size: 0.875rem;
-            font-weight: 600;
-        }
-        
-        .actions {
-            margin-top: 30px;
-            text-align: center;
-        }
-        
-        .btn {
-            background: #007bff;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            text-decoration: none;
-            display: inline-block;
-            margin: 0 10px;
-            transition: background-color 0.3s;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 500;
-        }
-        
-        .btn:hover {
-            background: #0056b3;
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-        }
-        
-        .btn-secondary:hover {
-            background: #545b62;
-        }
-        
-        .footer {
-            background: #f8f9fa;
-            padding: 20px 30px;
-            text-align: center;
-            color: #666;
-            font-size: 0.875rem;
-            border-top: 1px solid #e9ecef;
-        }
-        
-        /* Modal styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            animation: fadeIn 0.3s;
-        }
-        
-        .modal-content {
-            background-color: white;
-            margin: 5% auto;
-            padding: 0;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 600px;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-            position: relative;
-        }
-        
-        .modal-header {
-            background: #007bff;
-            color: white;
-            padding: 20px 30px;
-            border-radius: 12px 12px 0 0;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .modal-header h3 {
-            margin: 0;
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-        
-        .close {
-            position: absolute;
-            right: 20px;
-            top: 20px;
-            color: white;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            line-height: 1;
-        }
-        
-        .close:hover,
-        .close:focus {
-            opacity: 0.7;
-        }
-        
-        .modal-body {
-            padding: 30px;
-        }
-        
-        .email-content {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 6px;
-            padding: 20px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.875rem;
-            white-space: pre-line;
-            max-height: 300px;
-            overflow-y: auto;
-            margin: 15px 0;
-        }
-        
-        .copy-instructions {
-            margin: 20px 0;
-            padding: 15px;
-            background: #e3f2fd;
-            border-left: 4px solid #2196f3;
-            border-radius: 0 6px 6px 0;
-            font-size: 0.875rem;
-        }
-        
-        .btn-copy {
-            background: #28a745;
-            margin-right: 10px;
-            min-width: 160px;
-        }
-        
-        .btn-copy:hover {
-            background: #218838;
-        }
-        
-        .btn-secondary {
-            min-width: 160px;
-        }
-        
-        .copy-success {
-            color: #28a745;
-            font-weight: bold;
-            margin-left: 10px;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        @media (max-width: 600px) {
-            .container {
-                margin: 10px;
-            }
-            
-            .header, .content {
-                padding: 20px;
-            }
-            
-            .header h1 {
-                font-size: 1.375rem;
-            }
-            
-            .modal-content {
-                margin: 10% auto;
-                width: 95%;
-            }
-            
-            .modal-header, .modal-body {
-                padding: 20px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Access Blocked</title>
+  <style nonce="${nonce}">
+    /* Reset */
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    /* ===== Base / Layout ===== */
+    :root{
+      --accent: #F38020;         /* Cloudflare Orange */
+      --cta: #2563EB;            /* Blue CTA */
+      --cta-hover: #1E40AF;
+      --surface: #ffffff;        /* Card & modal surface */
+      --muted: #6B7280;          /* Muted text */
+      --border: #E5E7EB;         /* Subtle borders */
+      --panel: #F8FAFC;          /* Light panels inside card */
+      --shadow: 0 12px 30px rgba(2,6,23,.18);
+      --radius: 16px;
+    }
+
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;
+      background: radial-gradient(1200px 800px at 50% -10%, #111827 0%, #0f172a 60%);
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#0f172a;
+      line-height:1.6;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    .container{
+      background:var(--surface);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      max-width:620px;
+      width:100%;
+      margin:24px;
+      overflow:hidden; /* keep header radius crisp */
+    }
+
+    /* ===== Header (accent strip) ===== */
+    .header{
+      background:var(--accent);
+      color:#fff;
+      padding:28px 28px 24px;
+      text-align:center;
+    }
+    .header .icon{
+      font-size:40px;
+      display:block;
+      margin-bottom:12px;
+      line-height:1;
+    }
+    .header h1{
+      font-size:28px;
+      font-weight:700;
+      letter-spacing:.2px;
+      margin-bottom:6px;
+    }
+    .header p{
+      font-size:14px;
+      opacity:.95;
+    }
+
+    /* ===== Content ===== */
+    .content{ padding:28px; }
+
+    .rule-info{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:16px 18px;
+    }
+    .rule-name{
+      font-weight:700;
+      font-size:16px;
+      color:#111827;
+      margin-bottom:6px;
+    }
+    .rule-info p{
+      font-size:14px;
+      color:#374151;
+    }
+
+    .blocked-url{
+      margin:18px 0 0;
+      padding:14px 16px;
+      background:#F3F4F6;                /* neutral, no yellow */
+      border:1px solid var(--border);
+      border-radius:10px;
+      font-size:14px;
+      color:#111827;
+      word-break:break-all;
+    }
+    .blocked-url strong{
+      font-weight:600;
+      font-size:14px;
+    }
+
+    .details{
+      margin-top:18px;
+      font-size:13px;
+      color:var(--muted);
+    }
+    .details div{ margin:4px 0; }
+
+    .actions{
+      margin-top:22px;
+      text-align:center;
+    }
+    .btn{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      background:var(--cta);
+      color:#fff;
+      font-weight:600;
+      font-size:16px;
+      padding:12px 22px;
+      border-radius:12px;
+      transition:transform .05s ease, background .2s ease, box-shadow .2s ease;
+      box-shadow:0 6px 14px rgba(37,99,235,.25);
+    }
+    .btn:hover{ background:var(--cta-hover); }
+    .btn:active{ transform:translateY(1px); }
+
+    .footer{
+      border-top:1px solid var(--border);
+      background:var(--panel);
+      padding:16px 20px;
+      text-align:center;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    /* ===== Modal (kept functions; restyled) ===== */
+    .modal{
+      display:none;
+      position:fixed; inset:0;
+      z-index:1000;
+      background:rgba(15,23,42,.55);
+      backdrop-filter: blur(2px);
+      animation:fadeIn .2s ease;
+    }
+    .modal-content{
+      background:var(--surface);
+      margin:5% auto;
+      padding:0;
+      border-radius:var(--radius);
+      width:92%;
+      max-width:620px;
+      max-height:80vh;
+      overflow:auto;
+      box-shadow:var(--shadow);
+      position:relative;
+    }
+    .modal-header{
+      background:var(--cta);
+      color:#fff;
+      padding:18px 24px;
+      border-radius:var(--radius) var(--radius) 0 0;
+    }
+    .modal-header h3{
+      margin:0; font-size:18px; font-weight:700;
+    }
+    .close{
+      position:absolute; right:20px; top:16px;
+      color:#fff; font-size:28px; font-weight:700; cursor:pointer; line-height:1;
+      opacity:.95;
+    }
+    .close:hover{ opacity:.8; }
+
+    .modal-body{ padding:22px 24px 26px; }
+
+    .copy-instructions{
+      background:#EFF6FF;
+      border:1px solid #DBEAFE;
+      color:#1f2937;
+      padding:12px 14px;
+      border-radius:10px;
+      font-size:14px;
+      margin-bottom:16px;
+    }
+
+    .email-content{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:14px;
+      font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+      font-size:13px;
+      white-space:pre-line;
+      max-height:280px;
+      overflow-y:auto;
+      margin:10px 0 4px;
+      color:#111827;
+    }
+
+    .btn-copy{ background:#16A34A; }
+    .btn-copy:hover{ background:#15803D; }
+    .btn-secondary{
+      background:#6B7280;
+      margin-left:6px;
+    }
+    .btn-secondary:hover{ background:#4B5563; }
+
+    .copy-success{
+      color:#16A34A; font-weight:700; margin-left:10px; opacity:0; transition:opacity .2s;
+    }
+
+    @keyframes fadeIn{ from{opacity:0} to{opacity:1} }
+
+    @media (max-width:600px){
+      .container{ margin:12px; }
+      .content{ padding:22px; }
+      .header{ padding:24px; }
+      .header h1{ font-size:24px; }
+      .modal-content{ margin:10% auto; width:95%; }
+      .modal-header,.modal-body{ padding:18px 20px; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <span class="icon">🛡️</span>
-            <h1>Access Blocked</h1>
-            <p>This request has been blocked by your organization's security policy</p>
-        </div>
-        
-        <div class="content">
-            <div class="rule-info">
-                <div class="rule-name">${escapeHtml(ruleName)}${displayCategory}</div>
-                <p>Your request was blocked by the security rule shown above. This helps protect your organization from potentially harmful content.</p>
-            </div>
-            
-            ${blockedUrl ? `
-            <div class="blocked-url">
-                <strong>Blocked URL:</strong><br>
-                ${displayUrl}
-            </div>
-            ` : ''}
-            
-            <div class="details">
-                ${ruleId ? `<div><strong>Rule ID:</strong> ${escapeHtml(ruleId)}</div>` : ''}
-                ${category ? `<div><strong>Category:</strong> ${category}</div>` : ''}
-                ${timestamp ? `<div><strong>Time:</strong> ${new Date(timestamp).toLocaleString()}</div>` : `<div><strong>Time:</strong> ${new Date().toLocaleString()}</div>`}
-            </div>
-            
-            <div class="actions">
-                <button onclick="openContactModal()" class="btn">Contact Administrator</button>
-            </div>
-        </div>
-        
-        <div class="footer">
-            If you believe this was blocked in error, please contact your IT administrator.
-        </div>
-    </div>
-    
-    <!-- Contact Modal -->
-    <div id="contactModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Contact Administrator</h3>
-                <span class="close" onclick="closeContactModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="copy-instructions">
-                    <strong>Instructions:</strong> Use "Copy Message Body" to copy only the message text, then compose a new email to the administrator with the provided subject line.
-                </div>
-                
-                <div>
-                    <strong>To:</strong> ${escapeHtml(emailContent.adminEmail)}
-                </div>
-                <div style="margin: 10px 0;">
-                    <strong>Subject:</strong> ${escapeHtml(emailContent.subject)}
-                </div>
-                
-                <div>
-                    <strong>Message:</strong>
-                </div>
-                <div class="email-content" id="emailContent">${escapeHtml(emailContent.body)}</div>
-                
-                <div style="text-align: center; margin-top: 20px;">
-                    <button onclick="copyEmailContent()" class="btn btn-copy">Copy Message Body</button>
-                    <a href="mailto:${escapeHtml(emailContent.adminEmail)}?subject=${encodeURIComponent(emailContent.subject)}" class="btn btn-secondary">Open Email Client</a>
-                    <span id="copySuccess" class="copy-success">Message copied!</span>
-                </div>
-            </div>
-        </div>
+  <div class="container">
+    <div class="header">
+      <span class="icon">🛡️</span>
+      <h1>Access Blocked</h1>
+      <p>This request has been blocked by your organization's security policy</p>
     </div>
 
-    <script nonce="${nonce}">
-        function openContactModal() {
-            document.getElementById('contactModal').style.display = 'block';
-        }
-        
-        function closeContactModal() {
-            document.getElementById('contactModal').style.display = 'none';
-        }
-        
-        function copyEmailContent() {
-            const body = \`${emailContent.body.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
-            
-            navigator.clipboard.writeText(body).then(function() {
-                const successMsg = document.getElementById('copySuccess');
-                successMsg.style.opacity = '1';
-                setTimeout(function() {
-                    successMsg.style.opacity = '0';
-                }, 3000);
-            }).catch(function(err) {
-                // Fallback for older browsers
-                const textArea = document.createElement('textarea');
-                textArea.value = body;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                
-                const successMsg = document.getElementById('copySuccess');
-                successMsg.style.opacity = '1';
-                setTimeout(function() {
-                    successMsg.style.opacity = '0';
-                }, 3000);
-            });
-        }
-        
-        // Close modal when clicking outside of it
-        window.onclick = function(event) {
-            const modal = document.getElementById('contactModal');
-            if (event.target == modal) {
-                closeContactModal();
-            }
-        }
-    </script>
+    <div class="content">
+      <div class="rule-info">
+        <div class="rule-name">${escapeHtml(ruleName)}${displayCategory}</div>
+        <p>Your request was blocked by the security rule shown above. This helps protect your organization from potentially harmful content.</p>
+
+        ${blockedUrl ? `
+        <div class="blocked-url">
+          <strong>Blocked URL:</strong><br>
+          ${displayUrl}
+        </div>
+        ` : ''}
+      </div>
+
+      <div class="details">
+        ${ruleId ? `<div><strong>Rule ID:</strong> ${escapeHtml(ruleId)}</div>` : ''}
+        ${category ? `<div><strong>Category:</strong> ${category}</div>` : ''}
+        ${timestamp ? `<div><strong>Time:</strong> ${new Date(timestamp).toLocaleString()}</div>` : `<div><strong>Time:</strong> ${new Date().toLocaleString()}</div>`}
+      </div>
+
+      <div class="actions">
+        <button onclick="openContactModal()" class="btn">Contact Administrator</button>
+      </div>
+    </div>
+
+    <div class="footer">
+      If you believe this was blocked in error, please contact your IT administrator.
+    </div>
+  </div>
+
+  <!-- Contact Modal -->
+  <div id="contactModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Contact Administrator</h3>
+        <span class="close" onclick="closeContactModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="copy-instructions">
+          <strong>Instructions:</strong> Use "Copy Message Body" to copy only the message text, then compose a new email to the administrator with the provided subject line.
+        </div>
+
+        <div><strong>To:</strong> ${escapeHtml(emailContent.adminEmail)}</div>
+        <div style="margin:10px 0;"><strong>Subject:</strong> ${escapeHtml(emailContent.subject)}</div>
+
+        <div><strong>Message:</strong></div>
+        <div class="email-content" id="emailContent">${escapeHtml(emailContent.body)}</div>
+
+        <div style="text-align:center; margin-top:20px;">
+          <button onclick="copyEmailContent()" class="btn btn-copy">Copy Message Body</button>
+          <a href="mailto:${escapeHtml(emailContent.adminEmail)}?subject=${encodeURIComponent(emailContent.subject)}" class="btn btn-secondary">Open Email Client</a>
+          <span id="copySuccess" class="copy-success">Message copied!</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script nonce="${nonce}">
+    function openContactModal(){ document.getElementById('contactModal').style.display='block'; }
+    function closeContactModal(){ document.getElementById('contactModal').style.display='none'; }
+
+    function copyEmailContent(){
+      const body = \`${emailContent.body.replace(/`/g,'\\`').replace(/\$/g,'\\$')}\`;
+      navigator.clipboard.writeText(body).then(function(){
+        const s=document.getElementById('copySuccess'); s.style.opacity='1';
+        setTimeout(()=>{ s.style.opacity='0'; },3000);
+      }).catch(function(){
+        const ta=document.createElement('textarea'); ta.value=body; document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        const s=document.getElementById('copySuccess'); s.style.opacity='1';
+        setTimeout(()=>{ s.style.opacity='0'; },3000);
+      });
+    }
+
+    window.onclick=function(e){ const m=document.getElementById('contactModal'); if(e.target===m){ closeContactModal(); } }
+  </script>
 </body>
 </html>
   `.trim()
