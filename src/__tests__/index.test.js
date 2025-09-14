@@ -114,9 +114,9 @@ describe('Gateway Blocking Page Worker', () => {
     test('should fetch from API when not cached', async () => {
       // Mock no cached value
       mockKV.get.mockResolvedValue(null)
-      
+
       const request = new Request('https://example.com/block?rule_id=test-rule')
-      const response = await worker.fetch(request, env)
+      await worker.fetch(request, env)
       
       expect(mockKV.get).toHaveBeenCalledWith('rule:test-rule')
       expect(global.fetch).toHaveBeenCalledWith(

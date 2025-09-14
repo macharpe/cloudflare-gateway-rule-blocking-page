@@ -17,12 +17,14 @@ export default {
 async function handleRequest(request, env) {
   try {
     const url = new URL(request.url)
+
+
     const ruleId = url.searchParams.get('cf_rule_id') || url.searchParams.get('rule_id') || url.searchParams.get('ruleid')
     const blockedUrl = url.searchParams.get('cf_site_uri') || url.searchParams.get('blocked_url') || url.searchParams.get('url')
     const category = url.searchParams.get('cf_request_category_names') || url.searchParams.get('category')
     const timestamp = url.searchParams.get('timestamp')
     const userEmail = url.searchParams.get('cf_user_email')
-    
+
     // Validate Gateway context - require at least one Gateway parameter
     const hasGatewayContext = ruleId || blockedUrl || category || userEmail ||
       url.searchParams.has('cf_rule_id') || url.searchParams.has('cf_site_uri') ||
@@ -46,10 +48,9 @@ async function handleRequest(request, env) {
     if (isJsonRequest) {
       return handleJsonRequest(ruleId, blockedUrl, category, userEmail, env, request)
     }
-    
+
     return handleHtmlRequest(ruleId, blockedUrl, category, timestamp, userEmail, env)
-  } catch (error) {
-    console.error('Error handling request:', error)
+  } catch {
     return new Response('Internal Server Error', { status: 500 })
   }
 }
@@ -123,22 +124,26 @@ async function handleHtmlRequest(ruleId, blockedUrl, category, timestamp, userEm
  * @returns {Promise<string>}
  */
 async function getRuleName(ruleId, env) {
-  if (!ruleId) return 'Unknown Rule'
-  
+  if (!ruleId) {
+    return 'Unknown Rule'
+  }
+
   try {
     // Check cache first
     const cached = await getCachedRuleName(ruleId, env)
-    if (cached) return cached
-    
+    if (cached) {
+      return cached
+    }
+
     // Fetch from API with retry logic
     const apiToken = env.CLOUDFLARE_API_TOKEN
     const accountId = env.CLOUDFLARE_ACCOUNT_ID
-    
+
+
     if (!apiToken || !accountId) {
-      console.warn('API credentials not configured')
       return 'Rule ' + ruleId
     }
-    
+
     const ruleName = await fetchWithRetry(
       `https://api.cloudflare.com/client/v4/accounts/${accountId}/gateway/rules/${ruleId}`,
       {
@@ -149,13 +154,12 @@ async function getRuleName(ruleId, env) {
       },
       3 // max retries
     )
-    
+
     // Cache the result
     await cacheRuleName(ruleId, ruleName, env)
-    
+
     return ruleName
-  } catch (error) {
-    console.error('Error fetching rule name for rule:', ruleId, error)
+  } catch {
     return 'Rule ' + ruleId
   }
 }
@@ -173,23 +177,23 @@ async function fetchWithRetry(url, options, maxRetries) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const response = await fetch(url, options)
-      
+
       // Handle rate limiting (429) and server errors (5xx)
       if (response.status === 429 || response.status >= 500) {
         if (attempt === maxRetries) {
           throw new Error(`API request failed after ${maxRetries + 1} attempts: ${response.status} ${response.statusText}`)
         }
-        
+
         // Exponential backoff: 1s, 2s, 4s, 8s...
         const delay = Math.pow(2, attempt) * 1000
         await new Promise(resolve => setTimeout(resolve, delay))
         continue
       }
-      
+
       if (!response.ok) {
         throw new Error(`API request failed: ${response.status} ${response.statusText}`)
       }
-      
+
       const data = await response.json()
       return data.result?.name || ('Rule ' + url.split('/').pop())
       
@@ -220,8 +224,8 @@ async function getCachedRuleName(ruleId, env) {
       const cached = await env.RULE_CACHE.get(`rule:${ruleId}`)
       return cached
     }
-  } catch (error) {
-    console.error('Cache read error:', error)
+  } catch {
+    // Cache read error - continue without cache
   }
   return null
 }
@@ -239,8 +243,8 @@ async function cacheRuleName(ruleId, ruleName, env) {
       const cacheTtl = parseInt(env.CACHE_TTL) || 3600
       await env.RULE_CACHE.put(`rule:${ruleId}`, ruleName, { expirationTtl: cacheTtl })
     }
-  } catch (error) {
-    console.error('Cache write error:', error)
+  } catch {
+    // Cache write error - continue without cache
   }
 }
 
