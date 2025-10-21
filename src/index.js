@@ -109,6 +109,7 @@ async function handleHtmlRequest(ruleId, blockedUrl, category, timestamp, userEm
   return new Response(html, {
     headers: {
       'Content-Type': 'text/html',
+      'Cache-Control': 'public, max-age=3600, immutable',
       'X-Frame-Options': 'DENY',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'no-referrer',
