@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-gateway-blocking-page",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "description": "Cloudflare Worker that serves custom blocking pages for Gateway rules with dynamic rule name retrieval",
   "main": "src/index.js",
