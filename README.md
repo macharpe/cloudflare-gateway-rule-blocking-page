@@ -29,7 +29,7 @@ A Cloudflare Worker that replaces the default Cloudflare Gateway block page with
 
 ## Demo
 
-![Blocking Page Demo](images/blocking-page-demo.png)
+![Blocking Page Demo](images/blocking-page-demo.png?v=2)
 
 ## Architecture
 
