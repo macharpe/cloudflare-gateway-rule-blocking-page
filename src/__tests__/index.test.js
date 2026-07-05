@@ -183,11 +183,11 @@ describe('Gateway Blocking Page Worker', () => {
       expect(response.headers.get('Content-Security-Policy')).toContain('script-src \'nonce-')
     })
 
-    test('should include cache headers for HTML responses', async () => {
+    test('should set no-store cache header for HTML responses (nonce-protected pages must not be cached)', async () => {
       const request = new Request('https://example.com/block?rule_id=test-rule')
       const response = await worker.fetch(request, env)
 
-      expect(response.headers.get('Cache-Control')).toBe('public, max-age=3600, immutable')
+      expect(response.headers.get('Cache-Control')).toBe('no-store')
     })
   })
 
@@ -230,6 +230,342 @@ describe('Gateway Blocking Page Worker', () => {
         category: null,
         timestamp: expect.any(String)
       })
+    })
+  })
+
+  describe('Filter Type', () => {
+    test('should render human-readable label for cf_filter=http', async () => {
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_filter=http')
+      const response = await worker.fetch(request, env)
+
+      expect(response.status).toBe(200)
+      const html = await response.text()
+      expect(html).toContain('HTTP Policy')
+      expect(html).toContain('Policy Type')
+    })
+
+    test('should render human-readable label for cf_filter=dns', async () => {
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_filter=dns')
+      const response = await worker.fetch(request, env)
+
+      const html = await response.text()
+      expect(html).toContain('DNS Policy')
+    })
+
+    test('should include filter_type in JSON response', async () => {
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_filter=http', {
+        headers: { 'Accept': 'application/json' }
+      })
+      const response = await worker.fetch(request, env)
+      const data = await response.json()
+
+      expect(data.filter_type).toBe('http')
+    })
+
+    test('should not render Policy Type row when cf_filter is absent', async () => {
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule')
+      const response = await worker.fetch(request, env)
+
+      const html = await response.text()
+      expect(html).not.toContain('Policy Type')
+    })
+  })
+
+  describe('Ray ID', () => {
+    test('should render Ray ID from cf_ray_id query param', async () => {
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_ray_id=abc123def456')
+      const response = await worker.fetch(request, env)
+
+      expect(response.status).toBe(200)
+      const html = await response.text()
+      expect(html).toContain('abc123def456')
+      expect(html).toContain('Ray ID')
+    })
+
+    test('should fall back to CF-Ray request header when cf_ray_id param is absent', async () => {
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule', {
+        headers: { 'CF-Ray': 'header-ray-789xyz' }
+      })
+      const response = await worker.fetch(request, env)
+
+      const html = await response.text()
+      expect(html).toContain('header-ray-789xyz')
+      expect(html).toContain('Ray ID')
+    })
+
+    test('should include ray_id in JSON response', async () => {
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_ray_id=ray-json-test', {
+        headers: { 'Accept': 'application/json' }
+      })
+      const response = await worker.fetch(request, env)
+      const data = await response.json()
+
+      expect(data.ray_id).toBe('ray-json-test')
+    })
+
+    test('should not render Ray ID row when neither param nor header is present', async () => {
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule')
+      const response = await worker.fetch(request, env)
+
+      const html = await response.text()
+      expect(html).not.toContain('Ray ID')
+    })
+  })
+
+  describe('Device Name', () => {
+    test('should use cached device name when available', async () => {
+      mockKV.get.mockImplementation((key) => {
+        if (key === 'rule:test-rule') return Promise.resolve('Test Rule')
+        if (key === 'device:test-device-id') return Promise.resolve('My Laptop')
+        return Promise.resolve(null)
+      })
+
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_device_id=test-device-id')
+      const response = await worker.fetch(request, env)
+
+      expect(mockKV.get).toHaveBeenCalledWith('device:test-device-id')
+      const html = await response.text()
+      expect(html).toContain('My Laptop')
+      expect(html).toContain('Device')
+    })
+
+    test('should fetch device name from API on cache miss and write to KV', async () => {
+      mockKV.get.mockResolvedValue(null)
+      global.fetch.mockImplementation((url) => {
+        if (url.includes('/gateway/rules/')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ result: { name: 'Test Security Rule' } })
+          })
+        }
+        if (url.includes('/devices/')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ result: { name: 'MacBook Pro' } })
+          })
+        }
+        return Promise.reject(new Error('Unexpected fetch: ' + url))
+      })
+
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_device_id=test-device-id')
+      const response = await worker.fetch(request, env)
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.cloudflare.com/client/v4/accounts/test-account-id/devices/test-device-id',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer test-token'
+          })
+        })
+      )
+      expect(mockKV.put).toHaveBeenCalledWith('device:test-device-id', 'MacBook Pro', { expirationTtl: 7200 })
+
+      const html = await response.text()
+      expect(html).toContain('MacBook Pro')
+    })
+
+    test('should fall back to "Device {id}" when Devices API fails', async () => {
+      mockKV.get.mockResolvedValue(null)
+      global.fetch.mockImplementation((url) => {
+        if (url.includes('/gateway/rules/')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ result: { name: 'Test Security Rule' } })
+          })
+        }
+        if (url.includes('/devices/')) {
+          return Promise.reject(new Error('Network error'))
+        }
+        return Promise.reject(new Error('Unexpected fetch: ' + url))
+      })
+
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_device_id=test-device-id')
+      const response = await worker.fetch(request, env)
+
+      expect(response.status).toBe(200)
+      const html = await response.text()
+      expect(html).toContain('Device test-device-id')
+    }, 10000)
+
+    test('should include device_id and device_name in JSON response', async () => {
+      mockKV.get.mockImplementation((key) => {
+        if (key === 'device:test-device-id') return Promise.resolve('Office Desktop')
+        return Promise.resolve(null)
+      })
+
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_device_id=test-device-id', {
+        headers: { 'Accept': 'application/json' }
+      })
+      const response = await worker.fetch(request, env)
+      const data = await response.json()
+
+      expect(data.device_id).toBe('test-device-id')
+      expect(data.device_name).toBe('Office Desktop')
+    })
+
+    test('should not render Device row when cf_device_id is absent', async () => {
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule')
+      const response = await worker.fetch(request, env)
+
+      const html = await response.text()
+      // "Device" only appears if the row is rendered; "Contact Administrator" button is always present
+      // Check the specific detail-label context
+      expect(html).not.toMatch(/detail-label[^<]*>Device</)
+    })
+  })
+
+  describe('Cloudflare One Client IP Addresses', () => {
+    beforeEach(() => {
+      // Reset Cache API mock before each test
+      caches.default.match.mockResolvedValue(undefined)
+      caches.default.put.mockResolvedValue(undefined)
+    })
+
+    test('should render CF One Client IPv4 and IPv6 rows when device has IPs', async () => {
+      mockKV.get.mockResolvedValue(null)
+      global.fetch.mockImplementation((url) => {
+        if (url.includes('/gateway/rules/')) {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ result: { name: 'Test Rule' } }) })
+        }
+        if (url.includes('/devices/test-device-id')) {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ result: { name: 'My Laptop' } }) })
+        }
+        if (url.includes('/devices/registrations')) {
+          return Promise.resolve({
+            ok: true, status: 200,
+            json: async () => ({
+              result: [{ id: 'reg-1', device: { id: 'test-device-id' }, virtual_ipv4: '100.96.0.1', virtual_ipv6: 'fd01::1', last_seen_at: '2026-07-05T10:00:00Z' }]
+            })
+          })
+        }
+        return Promise.reject(new Error('Unexpected fetch: ' + url))
+      })
+
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_device_id=test-device-id')
+      const response = await worker.fetch(request, env)
+
+      expect(response.status).toBe(200)
+      const html = await response.text()
+      expect(html).toContain('100.96.0.1')
+      expect(html).toContain('fd01::1')
+      expect(html).toContain('CF One Client IPv4')
+      expect(html).toContain('CF One Client IPv6')
+    })
+
+    test('should use Cache API hit and skip fetch for CF One Client IPs', async () => {
+      mockKV.get.mockResolvedValue(null)
+
+      // Simulate a Cache API hit for the CF One Client IPs request
+      const cachedResult = { v4: '100.96.0.2', v6: null }
+      caches.default.match.mockResolvedValue({
+        json: async () => cachedResult
+      })
+
+      global.fetch.mockImplementation((url) => {
+        if (url.includes('/gateway/rules/')) {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ result: { name: 'Test Rule' } }) })
+        }
+        if (url.includes('/devices/test-device-id')) {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ result: { name: 'My Laptop' } }) })
+        }
+        // registrations should NOT be called — cache hit
+        return Promise.reject(new Error('Unexpected fetch: ' + url))
+      })
+
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_device_id=test-device-id')
+      const response = await worker.fetch(request, env)
+
+      const html = await response.text()
+      expect(html).toContain('100.96.0.2')
+      // Confirm teamnet was never fetched
+      const teamnetCalled = global.fetch.mock.calls.some(([url]) => url.includes('/teamnet/'))
+      expect(teamnetCalled).toBe(false)
+    })
+
+    test('should not render CF One Client IP rows when credentials are missing', async () => {
+      const envNoCreds = { ...env, CLOUDFLARE_API_TOKEN: undefined }
+      mockKV.get.mockResolvedValue(null)
+      global.fetch.mockImplementation((url) => {
+        if (url.includes('/gateway/rules/')) {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ result: { name: 'Test Rule' } }) })
+        }
+        if (url.includes('/devices/test-device-id')) {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ result: { name: 'My Laptop' } }) })
+        }
+        return Promise.reject(new Error('Unexpected fetch: ' + url))
+      })
+
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_device_id=test-device-id')
+      const response = await worker.fetch(request, envNoCreds)
+
+      const html = await response.text()
+      expect(html).not.toContain('CF One Client IPv4')
+      expect(html).not.toContain('CF One Client IPv6')
+    })
+
+    test('should not render CF One Client IP rows when no device_id is present', async () => {
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule')
+      const response = await worker.fetch(request, env)
+
+      const html = await response.text()
+      expect(html).not.toContain('CF One Client IPv4')
+      expect(html).not.toContain('CF One Client IPv6')
+    })
+
+    test('should include cf1client_ipv4 and cf1client_ipv6 in JSON response', async () => {
+      mockKV.get.mockImplementation((key) => {
+        if (key === 'device:test-device-id') return Promise.resolve('My Laptop')
+        return Promise.resolve(null)
+      })
+      global.fetch.mockImplementation((url) => {
+        if (url.includes('/devices/registrations')) {
+          return Promise.resolve({
+            ok: true, status: 200,
+            json: async () => ({
+              result: [{ id: 'reg-1', device: { id: 'test-device-id' }, virtual_ipv4: '100.96.0.5', virtual_ipv6: 'fd01::5', last_seen_at: '2026-07-05T10:00:00Z' }]
+            })
+          })
+        }
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ result: { name: 'Test Rule' } }) })
+      })
+
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_device_id=test-device-id', {
+        headers: { 'Accept': 'application/json' }
+      })
+      const response = await worker.fetch(request, env)
+      const data = await response.json()
+
+      expect(data.cf1client_ipv4).toBe('100.96.0.5')
+      expect(data.cf1client_ipv6).toBe('fd01::5')
+    })
+
+    test('should degrade gracefully when registrations API fails', async () => {
+      mockKV.get.mockResolvedValue(null)
+      global.fetch.mockImplementation((url) => {
+        if (url.includes('/gateway/rules/')) {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ result: { name: 'Test Rule' } }) })
+        }
+        if (url.includes('/devices/test-device-id')) {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ result: { name: 'My Laptop' } }) })
+        }
+        if (url.includes('/devices/registrations')) {
+          return Promise.reject(new Error('API unavailable'))
+        }
+        return Promise.reject(new Error('Unexpected fetch: ' + url))
+      })
+
+      const request = new Request('https://example.com/block?cf_rule_id=test-rule&cf_device_id=test-device-id')
+      const response = await worker.fetch(request, env)
+
+      // Page still renders, just without CF One Client IP rows
+      expect(response.status).toBe(200)
+      const html = await response.text()
+      expect(html).toContain('My Laptop')
+      expect(html).not.toContain('CF One Client IPv4')
+      expect(html).not.toContain('CF One Client IPv6')
     })
   })
 

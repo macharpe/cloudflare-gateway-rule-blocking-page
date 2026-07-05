@@ -28,10 +28,11 @@
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
     "babel-jest": "^30.0.5",
+    "baseline-browser-mapping": "^2.10.42",
     "eslint": "^9.33.0",
     "jest": "^30.0.5",
     "prettier": "^3.6.2",
     "typescript": "^5.9.2",
-    "wrangler": "^4.28.1"
+    "wrangler": "^4.107.0"
   }
 }
