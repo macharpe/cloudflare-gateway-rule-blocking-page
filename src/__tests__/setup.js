@@ -104,4 +104,14 @@ if (typeof setTimeout === 'undefined') {
   }
 }
 
+// Mock Workers Cache API (caches.default)
+if (typeof caches === 'undefined') {
+  global.caches = {
+    default: {
+      match: jest.fn().mockResolvedValue(undefined),
+      put: jest.fn().mockResolvedValue(undefined)
+    }
+  }
+}
+
 // This file is a setup file only - no tests needed
